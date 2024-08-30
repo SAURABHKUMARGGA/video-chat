@@ -17,6 +17,16 @@ io.on("connection",(socket)=>{
        //informed all user 
        io.emit("joined-user",users);
     })
+    socket.on("offer",({from,to,offer})=>{
+        console.log(from,to,offer);
+        io.to(users[to].id).emit("offer",offer);
+    })
+    socket.on("answer",({from,to,answer})=>{
+        io.to(users[from].id).emit("answer",{from ,to,answer});
+    })
+    socket.on("icecandidate",(icecandidate)=>{
+        socket.broadcast.emit("icecandidate",icecandidate);
+    })
 })
 
 console.log(process.env.PORT);

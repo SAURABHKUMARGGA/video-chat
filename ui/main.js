@@ -17,16 +17,18 @@ document.addEventListener("DOMContentLoaded",()=>{
                     }
                 ]
             }
-            peerconnection = RTCPeerConnection(config);
+            peerconnection = new RTCPeerConnection(config);
             //add local stream to peero connection
             streamvideo.getTracks().forEach((tracks)=>{
-                peerconnection.addTracks(tracks,streamvideo);
+                peerconnection.addTrack(tracks,streamvideo);
             })
-
-            peerconnection.addEventListener("track",async(event)=>{
-                const [remoteStream] = event.streams;
-                remotevideo.srcObject = remoteStream;
-            })
+            peerconnection.ontrack = ({ streams: [stream] }) => (remotevideo.srcObject = stream);
+            
+            peerconnection.onicecandidate = function(event){
+                if(event.candidate){
+                    socket.emit("icecandidate",event.candidate);
+                }
+            }
         }
         return {
             getInstance:()=>{
@@ -67,33 +69,48 @@ document.addEventListener("DOMContentLoaded",()=>{
             userList.appendChild(element);
         }
     })
-
+    socket.on("offer",async({from,to,offer})=>{
+        const pc = PeerConnection.getInstance();
+        await pc.setRemoteDescription(offer);
+        const answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
+        socket.emit("answer",{from,to,answer:pc.localDescription})
+    })
+    socket.on("answer",async({from,to,answer})=>{
+        const pc = PeerConnection.getInstance();
+        await pc.setRemoteDescription(answer);
+    })
+    socket.on("icecandidate",async(candiate)=>{
+        const pc = PeerConnection.getInstance();
+        await pc.addIceCandidate(new RTCIceCandidate(candiate));
+    })
 //start call
-function startCall(user){
+async function startCall(user){
     console.log(user);
+    const pc = PeerConnection.getInstance();
+    const offer =await pc.createOffer();
+    console.log(offer);
+    await pc.setLocalDescription(offer);
+    socket.emit("offer",{from:userName.value,to:user,offer:pc.localDescription});
 }
 
 //init local video start
 const startLocalVideo = async()=>{
-
-    try {
-        const videoCameras =await getConnectedDevices('videoinput');
-        updateCameraList(videoCameras);
-        const constraints = {'video': true, 'audio': true};
-        const stream = await navigator.mediaDevices.getUserMedia(constraints);
-        streamvideo = stream;
-        const videoElement = document.getElementById("video1");
-        videoElement.srcObject = stream;
-    } catch(error) {
-        console.error('Error opening video camera.', error);
-    }
+    const videoCameras =await getConnectedDevices('videoinput');
+    updateCameraList(videoCameras);
+    const constraints = {'video': true, 'audio': true};
+    const stream = await navigator.mediaDevices.getUserMedia(constraints);
+    streamvideo = stream;
+    const videoElement = document.getElementById("video1");
+    videoElement.srcObject = stream;
+   
 }
 
 // Updates the select element with the provided set of cameras
 function updateCameraList(cameras) {
     const listElement = document.querySelector('select#availableCameras');
     listElement.innerHTML = '';
-    startLocalVideo();
+    // startLocalVideo();
     for(let camera of cameras){
         let option = document.createElement("option");
         option.textContent = camera.label;
