@@ -11,8 +11,13 @@
         video{
             border: 1px solid black;
             border-radius: 7px;
-            width: 100%;
+            width: 500px;
         }
+        @media (max-width: 480px) {
+           video{
+                width: 100vw;
+           }
+          }
     </style>
 </head>
 <body>
@@ -31,7 +36,7 @@
 
         Available Camera : <select id="availableCameras"></select>
     </div>
-    <div class="container d-flex justify-content-between">
+    <div class="container d-flex justify-content-between flex-wrap">
         <div >
             <video id="video1" muted autoplay playsinline controls="false"></video>
         </div>
