@@ -13,18 +13,23 @@ const users = {};
 io.on("connection",(socket)=>{
     console.log("user connected");
     socket.on("username",(username)=>{
-       users[username] = {username, id:username.id};
+        console.log(username);
+       users[username] = {username, id:socket.id};
        //informed all user 
+       console.log(users);
        io.emit("joined-user",users);
     })
     socket.on("offer",({from,to,offer})=>{
-        console.log(from,to,offer);
-        io.to(users[to].id).emit("offer",offer);
+        console.log(users[to]);
+        console.log(users[to].id);
+        // io.emit("offer",{hello:"hello"});
+        io.to(users[to].id).emit("offer",{from,to,offer});
     })
     socket.on("answer",({from,to,answer})=>{
         io.to(users[from].id).emit("answer",{from ,to,answer});
     })
     socket.on("icecandidate",(icecandidate)=>{
+        // console.log(icecandidate);
         socket.broadcast.emit("icecandidate",icecandidate);
     })
 })

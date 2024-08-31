@@ -13,7 +13,7 @@ document.addEventListener("DOMContentLoaded",()=>{
             const config = {
                 iceServers:[
                     {
-                        urls:"stun:stun01.sipphone.com"
+                        urls:"stun:stun.l.google.com:19302",
                     }
                 ]
             }
@@ -22,13 +22,17 @@ document.addEventListener("DOMContentLoaded",()=>{
             streamvideo.getTracks().forEach((tracks)=>{
                 peerconnection.addTrack(tracks,streamvideo);
             })
-            peerconnection.ontrack = ({ streams: [stream] }) => (remotevideo.srcObject = stream);
+            peerconnection.ontrack = function(event) {
+                console.log(event);
+                remotevideo.srcObject = event.streams[0];
+            };
             
             peerconnection.onicecandidate = function(event){
                 if(event.candidate){
                     socket.emit("icecandidate",event.candidate);
                 }
             }
+            return peerconnection;
         }
         return {
             getInstance:()=>{
@@ -46,7 +50,7 @@ document.addEventListener("DOMContentLoaded",()=>{
     createBtn.addEventListener("click",()=>{
 
         socket.emit("username",userName.value);
-      document.getElementById("userNameContainer").style.display = "none";
+        document.getElementById("userNameContainer").style.display = "none";
     })
 
     socket.on("joined-user",(users)=>{
@@ -69,30 +73,64 @@ document.addEventListener("DOMContentLoaded",()=>{
             userList.appendChild(element);
         }
     })
+    //start call
+    async function startCall(user){
+        // console.log(user);
+        const pc = PeerConnection.getInstance();
+        // console.log(pc);
+        const offer =await pc.createOffer();
+        // console.log(offer);
+        await pc.setLocalDescription(offer);
+
+        // console.log(offer,pc.localDescription);
+        socket.emit("offer",{from:userName.value,to:user,offer:pc.localDescription});
+    }
+
+
+    
+    // function addPendingCandidates(pc) {
+    //     if (pc.pendingCandidates) {
+    //         pc.pendingCandidates.forEach(candidate => 
+    //         pc.addIceCandidate(new RTCIceCandidate(candidate)));
+    //         pc.pendingCandidates = [];
+    //     }
+    // }
     socket.on("offer",async({from,to,offer})=>{
+        // console.log(socket);
         const pc = PeerConnection.getInstance();
         await pc.setRemoteDescription(offer);
+
+        // console.log("DONE 1");
         const answer = await pc.createAnswer();
         await pc.setLocalDescription(answer);
+        // addPendingCandidates(pc);
+        // console.log(offer);
         socket.emit("answer",{from,to,answer:pc.localDescription})
     })
     socket.on("answer",async({from,to,answer})=>{
         const pc = PeerConnection.getInstance();
         await pc.setRemoteDescription(answer);
+        console.log("DONE 2");
+        // addPendingCandidates(pc);
     })
+
+   
     socket.on("icecandidate",async(candiate)=>{
         const pc = PeerConnection.getInstance();
-        await pc.addIceCandidate(new RTCIceCandidate(candiate));
+        // console.log(candiate);
+        console.log(pc.remoteDescription);
+        // console.log("DONE 3");
+        if(pc.remoteDescription){
+            await pc.addIceCandidate(new RTCIceCandidate(candiate));
+
+            console.log("right");
+        }else{
+            console.log("wrong");
+            // Store the candidate to add later
+            // pc.pendingCandidates = pc.pendingCandidates || [];
+            // pc.pendingCandidates.push(candiate);
+        }
     })
-//start call
-async function startCall(user){
-    console.log(user);
-    const pc = PeerConnection.getInstance();
-    const offer =await pc.createOffer();
-    console.log(offer);
-    await pc.setLocalDescription(offer);
-    socket.emit("offer",{from:userName.value,to:user,offer:pc.localDescription});
-}
 
 //init local video start
 const startLocalVideo = async()=>{
